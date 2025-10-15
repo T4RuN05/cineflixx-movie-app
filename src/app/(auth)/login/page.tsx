@@ -5,18 +5,10 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppContext } from '@/context/AppContext';
 
-/**
- * LoginPage: Handles user login authentication using client-side context.
- * * NOTE ON SECURITY: This is a mock implementation. In a production app, 
- * the login function would involve a secure HTTP POST request to a backend API.
- */
 export default function LoginPage() {
-  // Local state to manage form inputs and the loading indicator
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [loading, setLoading] = useState(false);
-  
-  // Get necessary functions for authentication and navigation
   const { login, showToast } = useAppContext();
   const router = useRouter();
 
@@ -24,16 +16,16 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
 
-    // Call the mock 'login' function from context. This checks credentials 
-    // against the data stored in localStorage under 'cineflixx_credentials'.
+    // RATIONALE: Attempt login via Context API (Mock Auth). This function handles 
+    // mock credential checking against localStorage.
     const result = await login(email, password);
     
     if (result.success) {
       showToast('Login successful! Welcome back.', 'success');
-      // Navigate to the secured dashboard route upon successful login
+      // Redirect to protected dashboard after successful login
       router.push('/dashboard');
     } else {
-      // Display the specific error message returned by the mock auth system
+      // Show error returned by the mock authentication logic
       showToast(result.message, 'error');
     }
 
@@ -41,13 +33,11 @@ export default function LoginPage() {
   };
 
   return (
-    // The background uses custom Tailwind utility classes (bg-gradient-to-br) 
-    // which automatically adjust for light/dark mode via global.css variables.
     <div className="min-h-screen flex items-center justify-center 
                     bg-gradient-to-br from-background via-card/50 to-background
                     p-4 sm:p-8">
       
-      {/* Auth Card Container: Designed to match the modern, clean mock-up */}
+      {/* Auth Card Container: Uses soft card colors and shadows for aesthetic appeal */}
       <div className="w-full max-w-md 
                       bg-card/90 backdrop-blur-sm 
                       p-8 sm:p-10 rounded-3xl 
@@ -63,6 +53,7 @@ export default function LoginPage() {
         
         <form className="space-y-4" onSubmit={handleSubmit}>
           
+          {/* Email Input (Controlled Component) */}
           <input 
             type="email" 
             placeholder="Email address" 
@@ -72,6 +63,7 @@ export default function LoginPage() {
             required 
           />
           
+          {/* Password Input (Controlled Component) */}
           <input 
             type="password" 
             placeholder="Password" 
@@ -81,10 +73,10 @@ export default function LoginPage() {
             required 
           />
 
-          {/* Submit Button */}
+          {/* Submit Button: Disabled during API call to prevent double-submission */}
           <button 
             type="submit" 
-            disabled={loading} // Prevent multiple submissions while fetching/processing
+            disabled={loading}
             className="w-full py-3 mt-6 font-semibold rounded-xl 
                        bg-primary text-white 
                        hover:bg-primary/90 transition-all 
@@ -96,7 +88,8 @@ export default function LoginPage() {
         </form>
 
         <p className="mt-6 text-center text-sm text-secondary">
-          Don't have an account?{' '}
+          {/* FIX: Escaping the apostrophe for Vercel/React compliance */}
+          Don&apos;t have an account?{' '} 
           <Link href="/register" className="text-primary hover:underline font-semibold">
             Register
           </Link>

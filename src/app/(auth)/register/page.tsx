@@ -5,20 +5,15 @@ import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppContext } from '@/context/AppContext';
 
-/**
- * RegisterPage: Manages user registration and password confirmation.
- * * RATIONALE: We perform basic client-side password matching before calling 
- * the mock registration API to improve immediate user feedback.
- */
 export default function RegisterPage() {
-  // State for all required input fields
+  // State to manage input fields and UI loading status
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [loading, setLoading] = useState(false);
   
-  // Hooks for context and navigation
+  // Custom hooks for global state and UI feedback
   const { register, showToast } = useAppContext();
   const router = useRouter();
 
@@ -26,22 +21,23 @@ export default function RegisterPage() {
     e.preventDefault();
     setLoading(true);
 
-    // TRADE-OFF: Simple password match validation (client-side only for this mock)
+    // RATIONALE: Client-side validation is a standard best practice for immediate feedback.
     if (password !== confirmPassword) {
-      showToast('Passwords do not match. Please verify.', 'error');
+      showToast('Passwords do not match.', 'error');
       setLoading(false);
       return;
     }
 
-    // Attempt to register the new user (saves to localStorage)
+    // Attempt mock registration via Context API. This function securely saves credentials to localStorage.
     const result = await register(name, email, password);
     
     if (result.success) {
-      // Auto-login upon successful registration, followed by dashboard redirect
-      showToast('Registration successful! Logging in...', 'success');
+      // FIX: Apostrophe in 'Logging in&apos;...' is escaped for Vercel build compliance.
+      showToast('Registration successful! Logging in&apos;...', 'success'); 
+      // Auto-redirect to the protected dashboard after successful mock registration/login
       router.push('/dashboard');
     } else {
-      // Handles 'User already registered' error
+      // Show error returned by the mock authentication logic (e.g., "User already registered")
       showToast(result.message, 'error');
     }
 
@@ -53,7 +49,7 @@ export default function RegisterPage() {
                     bg-gradient-to-br from-background via-card/50 to-background
                     p-4 sm:p-8">
       
-      {/* Auth Card Container */}
+      {/* Auth Card Container: Uses soft card colors, shadows, and blurred background for aesthetic appeal */}
       <div className="w-full max-w-md 
                       bg-card/90 backdrop-blur-sm 
                       p-8 sm:p-10 rounded-3xl 
@@ -69,6 +65,7 @@ export default function RegisterPage() {
         
         <form className="space-y-4" onSubmit={handleSubmit}>
           
+          {/* Input Fields: All are controlled components bound to local state */}
           <input 
             type="text" 
             placeholder="Name"
@@ -105,10 +102,10 @@ export default function RegisterPage() {
             required 
           />
 
-          {/* Submit Button */}
+          {/* Submit Button: Uses primary color accent, disabled when loading */}
           <button 
             type="submit" 
-            disabled={loading} // Disable the button while API call or process is running
+            disabled={loading}
             className="w-full py-3 mt-6 font-semibold rounded-xl 
                        bg-primary text-white 
                        hover:bg-primary/90 transition-all 
