@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import MovieCard from './MovieCard';
 import { Movie } from '@/lib/tmdb-api';
 import { MovieGridSkeleton } from './LoadingSkeleton';
@@ -9,97 +9,75 @@ interface InfiniteMovieGridProps {
   initialMovies: Movie[];
   initialPage: number;
   initialTotalPages: number;
-  initialQuery: string;
+  initialQuery?: string;
 }
 
 export default function InfiniteMovieGrid({
   initialMovies,
   initialPage,
   initialTotalPages,
-  initialQuery,
+  initialQuery = '',
 }: InfiniteMovieGridProps) {
   const [movies, setMovies] = useState<Movie[]>(initialMovies);
-  const [page, setPage] = useState(initialPage);
-  const [totalPages, setTotalPages] = useState(initialTotalPages);
+  const [page, setPage] = useState<number>(initialPage);
+  const [totalPages, setTotalPages] = useState<number>(initialTotalPages);
   const [loading, setLoading] = useState(false);
-  const [query, setQuery] = useState(initialQuery);
-
-  const loaderRef = useRef<HTMLDivElement | null>(null);
 
   const fetchNextPage = useCallback(async () => {
     if (loading || page >= totalPages) return;
 
     setLoading(true);
-    try {
-      const params = new URLSearchParams();
-      if (query) params.set('query', query);
-      params.set('page', String(page + 1));
+    const nextPage = page + 1;
 
+    const params = new URLSearchParams();
+    if (initialQuery) params.set('query', initialQuery);
+    params.set('page', String(nextPage));
+
+    try {
       const res = await fetch(`/api/movies?${params.toString()}`);
-      if (!res.ok) {
-        console.error('Failed to fetch movies from API route:', res.statusText);
-        setLoading(false);
-        return;
-      }
+      if (!res.ok) throw new Error('Failed to fetch movies');
 
       const data = await res.json();
-      if (!data || !data.results) {
-        console.error('Invalid data from API:', data);
-        setLoading(false);
-        return;
-      }
+      if (!data?.results) return;
 
-      // Filter out duplicates
-      const existingIds = new Set(movies.map((m) => m.id));
-      const newMovies = data.results.filter((m: Movie) => !existingIds.has(m.id));
+      setMovies(prev => {
+        const existingIds = new Set(prev.map(m => m.id));
+        const newMovies = data.results.filter((m: Movie) => !existingIds.has(m.id));
+        return [...prev, ...newMovies];
+      });
 
-      setMovies((prev) => [...prev, ...newMovies]);
-      setPage(data.page);
-      setTotalPages(data.total_pages);
+      setPage(nextPage);
+      setTotalPages(data.total_pages || totalPages);
     } catch (err) {
       console.error('Error fetching next page:', err);
     } finally {
       setLoading(false);
     }
-  }, [page, totalPages, query, loading, movies]);
+  }, [page, totalPages, loading, initialQuery]);
 
-  // Infinite scroll observer
+  // Infinite scroll
   useEffect(() => {
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries[0].isIntersecting) {
-          fetchNextPage();
-        }
-      },
-      { threshold: 1 }
-    );
-
-    if (loaderRef.current) observer.observe(loaderRef.current);
-
-    return () => {
-      if (loaderRef.current) observer.unobserve(loaderRef.current);
+    const handleScroll = () => {
+      if (
+        window.innerHeight + window.scrollY >= document.body.offsetHeight - 300 &&
+        !loading
+      ) {
+        fetchNextPage();
+      }
     };
-  }, [fetchNextPage]);
 
-  // Reset when query changes
-  useEffect(() => {
-    setMovies(initialMovies);
-    setPage(initialPage);
-    setTotalPages(initialTotalPages);
-    setQuery(initialQuery);
-  }, [initialMovies, initialPage, initialTotalPages, initialQuery]);
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, [fetchNextPage, loading]);
 
   return (
     <>
       <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
-        {movies.map((movie) => (
-          <MovieCard key={movie.id} movie={movie} />
+        {movies.map(movie => (
+          <MovieCard key={movie.id + Math.random()} movie={movie} />
         ))}
       </div>
-
-      <div ref={loaderRef} className="mt-6 flex justify-center">
-        {loading && <MovieGridSkeleton count={6} />}
-      </div>
+      {loading && <MovieGridSkeleton count={12} />}
     </>
   );
 }

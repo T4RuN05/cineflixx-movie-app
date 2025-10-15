@@ -22,10 +22,7 @@ export default async function DashboardPage({
   return (
     <AuthGuard>
       <main className="container py-8">
-        {/* Client-only SearchBar */}
         <SearchBar initialQuery={query} />
-
-        {/* Infinite grid with Suspense */}
         <Suspense fallback={<MovieGridSkeleton count={18} />}>
           <InfiniteMovieGrid
             initialMovies={initialData.results}
