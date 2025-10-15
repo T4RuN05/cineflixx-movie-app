@@ -1,10 +1,9 @@
 'use client';
 
-import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useSearchParams } from 'next/navigation';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import MovieCard from './MovieCard';
+import { Movie } from '@/lib/tmdb-api';
 import { MovieGridSkeleton } from './LoadingSkeleton';
-import { searchMovies, getPopularMovies, Movie } from '@/lib/tmdb-api'; 
 
 interface InfiniteMovieGridProps {
   initialMovies: Movie[];
@@ -13,140 +12,94 @@ interface InfiniteMovieGridProps {
   initialQuery: string;
 }
 
-// Client-side function to fetch subsequent pages
-const fetchNextPage = async (query: string, page: number) => {
-    // Reuses the server-side functions for simplicity, which must handle API key securely.
-    if (query) {
-        return searchMovies(query, page);
-    } else {
-        return getPopularMovies(page);
-    }
-};
-
-export default function InfiniteMovieGrid({ 
-    initialMovies, 
-    initialPage,
-    initialTotalPages,
-    initialQuery,
+export default function InfiniteMovieGrid({
+  initialMovies,
+  initialPage,
+  initialTotalPages,
+  initialQuery,
 }: InfiniteMovieGridProps) {
-    const searchParams = useSearchParams();
-    const currentQuery = searchParams.get('query') || initialQuery;
+  const [movies, setMovies] = useState<Movie[]>(initialMovies);
+  const [page, setPage] = useState(initialPage);
+  const [totalPages, setTotalPages] = useState(initialTotalPages);
+  const [loading, setLoading] = useState(false);
+  const [query, setQuery] = useState(initialQuery);
 
-    // --- State Initialization ---
-    const [movies, setMovies] = useState<Movie[]>(initialMovies);
-    const [page, setPage] = useState(initialPage);
-    const [totalPages, setTotalPages] = useState(initialTotalPages);
-    const [loading, setLoading] = useState(false);
-    const [hasMore, setHasMore] = useState(initialPage < initialTotalPages);
+  const loaderRef = useRef<HTMLDivElement | null>(null);
 
-    const observerTargetRef = useRef<HTMLDivElement>(null);
-    const queryRef = useRef(initialQuery);
+  const fetchNextPage = useCallback(async () => {
+    if (loading || page >= totalPages) return;
 
+    setLoading(true);
+    try {
+      const params = new URLSearchParams();
+      if (query) params.set('query', query);
+      params.set('page', String(page + 1));
 
-    // --- 1. Handle New Search Query from Server ---
-    useEffect(() => {
-        // This effect runs if the Server Component rendered a new set of initial props
-        // We use JSON.stringify to deep-compare the movie arrays since they are prop dependencies
-        if (
-            currentQuery !== queryRef.current || 
-            initialPage !== page ||
-            JSON.stringify(initialMovies) !== JSON.stringify(movies) 
-        ) {
-            // Reset state with the new server-fetched data
-            setMovies(initialMovies);
-            setPage(initialPage);
-            setTotalPages(initialTotalPages);
-            setHasMore(initialPage < initialTotalPages);
-            queryRef.current = currentQuery;
+      const res = await fetch(`/api/movies?${params.toString()}`);
+      if (!res.ok) {
+        console.error('Failed to fetch movies from API route:', res.statusText);
+        setLoading(false);
+        return;
+      }
+
+      const data = await res.json();
+      if (!data || !data.results) {
+        console.error('Invalid data from API:', data);
+        setLoading(false);
+        return;
+      }
+
+      // Filter out duplicates
+      const existingIds = new Set(movies.map((m) => m.id));
+      const newMovies = data.results.filter((m: Movie) => !existingIds.has(m.id));
+
+      setMovies((prev) => [...prev, ...newMovies]);
+      setPage(data.page);
+      setTotalPages(data.total_pages);
+    } catch (err) {
+      console.error('Error fetching next page:', err);
+    } finally {
+      setLoading(false);
+    }
+  }, [page, totalPages, query, loading, movies]);
+
+  // Infinite scroll observer
+  useEffect(() => {
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0].isIntersecting) {
+          fetchNextPage();
         }
-    }, [currentQuery, initialMovies, initialPage, initialTotalPages, movies, page]);
-
-
-    // --- 2. Infinite Scroll Logic ---
-    const loadMoreMovies = useCallback(async () => {
-        if (loading || !hasMore) return;
-
-        setLoading(true);
-        try {
-            const nextPage = page + 1;
-            const data = await fetchNextPage(currentQuery, nextPage);
-            
-            const newTotalPages = Math.min(data.total_pages, 500);
-            
-            setMovies(prevMovies => {
-                const allMoviesMap = new Map<number, Movie>();
-                prevMovies.forEach(m => allMoviesMap.set(m.id, m));
-                data.results.forEach(m => allMoviesMap.set(m.id, m));
-                return Array.from(allMoviesMap.values());
-            });
-
-            setPage(nextPage);
-            setTotalPages(newTotalPages);
-            setHasMore(nextPage < newTotalPages);
-
-        } catch (error) {
-            console.error('Failed to load more movies:', error);
-            setHasMore(false); 
-        } finally {
-            setLoading(false);
-        }
-    }, [loading, hasMore, page, currentQuery]); // Dependency array is clean
-
-    
-    // --- 3. Intersection Observer Setup ---
-    useEffect(() => {
-        // RATIONALE: Observe target only if we know there is more data to fetch and we aren't already loading.
-        if (!hasMore || loading) return;
-
-        const observer = new IntersectionObserver(
-            (entries) => {
-                if (entries[0].isIntersecting) {
-                    loadMoreMovies();
-                }
-            },
-            { rootMargin: '200px' }
-        );
-
-        const target = observerTargetRef.current;
-        if (target) {
-            observer.observe(target);
-        }
-
-        return () => {
-            if (target) {
-                observer.unobserve(target);
-            }
-        };
-    // Dependencies: loadMoreMovies changes when its own dependencies change (stable).
-    }, [loadMoreMovies, hasMore, loading]);
-
-    
-    return (
-        <div>
-            <h2 className="text-2xl font-bold mb-6 text-card-foreground">
-                {currentQuery ? `Search Results for "${currentQuery}"` : 'Popular Movies'}
-            </h2>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
-                {movies.map(movie => (
-                    <MovieCard key={movie.id} movie={movie} /> 
-                ))}
-            </div>
-
-            {/* Loading Indicator/Skeleton (YouTube Style) */}
-            {hasMore && (
-                <div ref={observerTargetRef} className="py-12">
-                    {loading ? <MovieGridSkeleton count={6} /> : <div className="h-1" />}
-                </div>
-            )}
-
-            {/* End of results message */}
-            {!hasMore && movies.length > 0 && (
-                <div className="text-center py-12 text-secondary">
-                    <p className="text-lg font-medium">You&apos;ve reached the end of the line! 🎬</p>
-                    <p className="text-sm">Displaying {movies.length} results.</p>
-                </div>
-            )}
-        </div>
+      },
+      { threshold: 1 }
     );
+
+    if (loaderRef.current) observer.observe(loaderRef.current);
+
+    return () => {
+      if (loaderRef.current) observer.unobserve(loaderRef.current);
+    };
+  }, [fetchNextPage]);
+
+  // Reset when query changes
+  useEffect(() => {
+    setMovies(initialMovies);
+    setPage(initialPage);
+    setTotalPages(initialTotalPages);
+    setQuery(initialQuery);
+  }, [initialMovies, initialPage, initialTotalPages, initialQuery]);
+
+  return (
+    <>
+      <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-6 gap-6">
+        {movies.map((movie) => (
+          <MovieCard key={movie.id} movie={movie} />
+        ))}
+      </div>
+
+      <div ref={loaderRef} className="mt-6 flex justify-center">
+        {loading && <MovieGridSkeleton count={6} />}
+      </div>
+    </>
+  );
 }

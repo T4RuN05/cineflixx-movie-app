@@ -1,10 +1,17 @@
-const TMDB_API_KEY = process.env.TMDB_API_KEY || 'YOUR_TMDB_API_KEY'; 
+// lib/tmdb-api.ts
+const TMDB_API_KEY = process.env.TMDB_API_KEY;
 const TMDB_BASE_URL = 'https://api.themoviedb.org/3';
+
+if (!TMDB_API_KEY) {
+  throw new Error(
+    'TMDB_API_KEY is missing! Set it in .env.local or in Vercel Environment Variables.'
+  );
+}
 
 export interface Movie {
   id: number;
   title: string;
-  poster_path: string | null; // Can be null in TMDB responses
+  poster_path: string | null;
   vote_average: number;
   release_date: string;
   overview: string;
@@ -19,28 +26,20 @@ interface PaginatedResponse {
   total_results: number;
 }
 
-/**
- * Reusable function for fetching data securely on the server.
- * @template T The expected JSON response type.
- * @param params Record<string, unknown>: Ensures type safety for search parameters.
- */
-const fetcher = async <T>(path: string, params: Record<string, unknown> = {}): Promise<T> => {
-  if (!TMDB_API_KEY || TMDB_API_KEY === 'YOUR_TMDB_API_KEY') {
-    console.error("CRITICAL: TMDB_API_KEY is missing or invalid.");
-  }
-
+const fetcher = async <T>(
+  path: string,
+  params: Record<string, unknown> = {}
+): Promise<T> => {
   const url = new URL(`${TMDB_BASE_URL}${path}`);
   url.searchParams.set('api_key', TMDB_API_KEY);
   url.searchParams.set('language', 'en-US');
 
-  Object.entries(params).forEach(([key, value]) => {
-    // FRAMEWORK CONVENTION: Ensure parameter values are strings for URL searching.
-    url.searchParams.set(key, String(value));
-  });
+  Object.entries(params).forEach(([key, value]) =>
+    url.searchParams.set(key, String(value))
+  );
 
   const response = await fetch(url.toString(), {
-    // PERFORMANCE: Next.js caching strategy. Cache results for 1 hour (3600s).
-    next: { revalidate: 3600 } 
+    next: { revalidate: 3600 }, // 1 hour caching
   });
 
   if (!response.ok) {
@@ -50,17 +49,12 @@ const fetcher = async <T>(path: string, params: Record<string, unknown> = {}): P
   return response.json();
 };
 
-// --- Exported API Functions (Used by Server Components and Client Infinite Scroll) ---
+// Server-side API functions
+export const getPopularMovies = (page: number = 1): Promise<PaginatedResponse> =>
+  fetcher<PaginatedResponse>('/movie/popular', { page });
 
-export const getPopularMovies = (page: number = 1): Promise<PaginatedResponse> => {
-  return fetcher<PaginatedResponse>('/movie/popular', { page });
-};
+export const searchMovies = (query: string, page: number = 1): Promise<PaginatedResponse> =>
+  query ? fetcher<PaginatedResponse>('/search/movie', { query, page }) : getPopularMovies(page);
 
-export const searchMovies = (query: string, page: number = 1): Promise<PaginatedResponse> => {
-  if (!query) return getPopularMovies(page);
-  return fetcher<PaginatedResponse>('/search/movie', { query, page });
-};
-
-export const getMovieDetail = (id: number): Promise<Movie> => {
-  return fetcher<Movie>(`/movie/${id}`);
-};
+export const getMovieDetail = (id: number): Promise<Movie> =>
+  fetcher<Movie>(`/movie/${id}`);
