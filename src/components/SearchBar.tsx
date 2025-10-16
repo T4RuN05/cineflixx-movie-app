@@ -20,7 +20,6 @@ export default function SearchBar({ initialQuery }: { initialQuery: string }) {
   const [isFocused, setIsFocused] = useState(false);
   const searchTimeoutRef = useRef<TimeoutRef>(null);
 
-  // --- Debounced search function ---
   const handleSearch = useCallback((searchTerm: string) => {
     if (searchTimeoutRef.current) {
       clearTimeout(searchTimeoutRef.current);
@@ -35,10 +34,25 @@ export default function SearchBar({ initialQuery }: { initialQuery: string }) {
             page: '1',
           });
           const res = await fetch(`/api/movies?${params.toString()}`);
+
+          if (!res.ok) {
+            console.error('Search API error:', res.statusText);
+            setSuggestions([]);
+            return;
+          }
+
           const data = await res.json();
 
+          if (!data?.results) {
+            setSuggestions([]);
+            return;
+          }
+
           setSuggestions(
-            data.results.slice(0, 5).map((m: any) => ({ id: m.id, title: m.title }))
+            data.results
+              .filter((m: any) => m && m.id && m.title)
+              .slice(0, 5)
+              .map((m: any) => ({ id: m.id, title: m.title }))
           );
         } catch (error) {
           console.error('Error fetching suggestions:', error);
@@ -72,7 +86,6 @@ export default function SearchBar({ initialQuery }: { initialQuery: string }) {
     router.push(`/dashboard?${newParams.toString()}`);
   };
 
-  // Cleanup the timeout when the component unmounts
   useEffect(() => {
     return () => {
       if (searchTimeoutRef.current) clearTimeout(searchTimeoutRef.current);
@@ -105,9 +118,11 @@ export default function SearchBar({ initialQuery }: { initialQuery: string }) {
       </form>
 
       {showSuggestions && (
-        <ul className="absolute top-full mt-2 w-full 
+        <ul
+          className="absolute top-full mt-2 w-full 
                        bg-card rounded-lg shadow-xl z-50 
-                       border border-secondary/10 overflow-hidden">
+                       border border-secondary/10 overflow-hidden"
+        >
           {suggestions.map((movie) => (
             <li key={movie.id}>
               <Link
