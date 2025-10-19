@@ -1,4 +1,3 @@
-// Path: src/app/api/movies/route.ts
 import { NextResponse } from 'next/server';
 import { getPopularMovies, searchMovies } from '@/lib/tmdb-api';
 

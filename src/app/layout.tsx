@@ -3,14 +3,15 @@ import { Inter } from "next/font/google";
 import "./globals.css";
 import { AppProvider } from "@/context/AppContext";
 import Header from "@/components/Header"; 
-import Toast from "@/components/Toast"; // <-- Import Toast
+import Toast from "@/components/Toast"; 
 
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-// ...
-};
 
+};
+// main layout for the app
+// wraps every page with navbar and context provider
 export default function RootLayout({
   children,
 }: Readonly<{

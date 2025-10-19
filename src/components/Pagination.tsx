@@ -12,8 +12,7 @@ interface PaginationProps {
   query: string;
 }
 
-// NOTE: This implements simple pagination. For true infinite scrolling, 
-// a different strategy (like a hook/intersection observer) would be required.
+
 export default function Pagination({ currentPage, totalPages, totalResults, query }: PaginationProps) {
   const router = useRouter();
   const searchParams = useSearchParams();

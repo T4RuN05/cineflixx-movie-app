@@ -1,4 +1,3 @@
-// Path: src/components/Toast.tsx
 
 'use client';
 
