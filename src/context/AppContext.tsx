@@ -2,7 +2,7 @@
 
 import React, { createContext, useState, useEffect, useContext, ReactNode, useCallback, useRef } from 'react';
 
-// --- Type Definitions ---
+// type defination
 interface Movie {
   id: number;
   title: string;
@@ -45,7 +45,7 @@ interface AppContextType {
 
 const AppContext = createContext<AppContextType | undefined>(undefined);
 
-// --- Storage Keys ---
+// storage keys
 const USER_KEY = 'cineflixx_user';
 const CREDENTIALS_KEY = 'cineflixx_credentials';
 
@@ -75,7 +75,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     localStorage.setItem(getFavoritesKey(email), JSON.stringify(currentFavorites));
   }, []);
 
-  // --- INITIALIZATION ---
+  // initialization
   useEffect(() => {
     const root = window.document.documentElement;
     const storedTheme = localStorage.getItem('theme');
@@ -101,7 +101,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [loadFavorites]);
 
-  // --- USER/FAVORITES SYNC ---
+  // user/fav sync
   useEffect(() => {
     if (user && user.email !== currentUserEmailRef.current) {
       setFavorites(loadFavorites(user.email));
@@ -124,7 +124,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     }
   }, [favorites, user, saveFavorites]);
 
-  // --- AUTH LOGIC ---
+  // AUTH logic
   const mockGetCredentials = () => {
     const creds = localStorage.getItem(CREDENTIALS_KEY);
     try {
@@ -169,7 +169,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
 
   const logout = () => setUser(null);
 
-  // --- UI/Theme ---
+  // theme
   const toggleDarkMode = useCallback(() => {
     setIsDarkMode(prev => {
       const newMode = !prev;
@@ -184,7 +184,7 @@ export const AppProvider = ({ children }: { children: ReactNode }) => {
     setTimeout(() => setToast(null), 3000);
   }, []);
 
-  // --- FAVORITES ---
+  // favourites
   const addFavorite = (movie: Movie) => {
     if (!favorites.some(f => f.id === movie.id)) setFavorites(prev => [...prev, movie]);
   };

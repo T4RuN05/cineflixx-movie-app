@@ -1,5 +1,3 @@
-// Path: src/lib/tmdb-api.ts
-
 const TMDB_API_KEY = process.env.TMDB_API_KEY;
 
 if (!TMDB_API_KEY) {
